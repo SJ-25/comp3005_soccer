@@ -79,8 +79,8 @@ def insert_event_details(event):
                 card_name = EXCLUDED.card_name
             """, (
                 event['id'],
-                bad_behaviour_data.get('bad_behaviour', {}).get('card', {}).get('id'),
-                bad_behaviour_data.get('bad_behaviour', {}).get('card', {}).get('name')
+                bad_behaviour_data.get('card', {}).get('id'),
+                bad_behaviour_data.get('card', {}).get('name')
             )
         )
 
@@ -96,8 +96,8 @@ def insert_event_details(event):
                 outcome_name = EXCLUDED.outcome_name
             """, (
                 event['id'],
-                ball_receipt_data.get('ball_receipt', {}).get('outcome', {}).get('id'),
-                ball_receipt_data.get('ball_receipt', {}).get('outcome', {}).get('name')
+                ball_receipt_data.get('outcome', {}).get('id'),
+                ball_receipt_data.get('outcome', {}).get('name')
             )
         )
 
@@ -185,9 +185,9 @@ def insert_event_details(event):
                 no_touch = EXCLUDED.no_touch
             """, (
                 event['id'],
-                dribble_data.get('overrun', False),  # Directly using dribble_data
+                dribble_data.get('overrun', False),
                 dribble_data.get('nutmeg', False),
-                dribble_data.get('outcome', {}).get('id'),  # Accessing nested 'outcome' safely
+                dribble_data.get('outcome', {}).get('id'),
                 dribble_data.get('outcome', {}).get('name'),
                 dribble_data.get('no_touch', False)
             )
@@ -502,11 +502,11 @@ def insert_event_details(event):
                 shot_type_data.get('name'),
                 outcome_data.get('id'),
                 outcome_data.get('name'),
-                shot_data.get('aerial_won', False),  # 假设缺失时默认值为 False
-                shot_data.get('follows_dribble', False),  # 假设缺失时默认值为 False
-                shot_data.get('first_time', False),  # 假设缺失时默认值为 False
-                json.dumps(shot_data.get('freeze_frame', [])),  # 假设缺失时默认值为 []
-                shot_data.get('open_goal', False)  # 假设缺失时默认值为 False
+                shot_data.get('aerial_won', False),
+                shot_data.get('follows_dribble', False),
+                shot_data.get('first_time', False),
+                json.dumps(shot_data.get('freeze_frame', [])),
+                shot_data.get('open_goal', False)
             )
         )
 
