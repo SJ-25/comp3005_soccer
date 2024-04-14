@@ -1,7 +1,7 @@
 # Created by Gabriel Martell
 
 '''
-Version 1.1 (04/02/2024)
+Version 1.2 (04/13/2024)
 =========================================================
 queries.py (Carleton University COMP3005 - Database Management Student Template Code)
 
@@ -28,6 +28,12 @@ import re
 The following is the connection information for this project. These settings are used to connect this file to the autograder.
 You must NOT change these settings - by default, db_host, db_port and db_username are as follows when first installing and utilizing psql.
 For the user "postgres", you must MANUALLY set the password to 1234.
+
+This can be done with the following snippet:
+
+sudo -u postgres psql
+\password postgres
+
 '''
 root_database_name = "project_database"
 query_database_name = "query_database"
@@ -41,17 +47,21 @@ dir_path = os.path.dirname(os.path.realpath(__file__))
 
 # Loading the Database after Drop - Do NOT Modify
 #================================================
-def load_database(cursor, conn):
-    drop_database(cursor, conn)
+def load_database(conn):
+    drop_database(conn)
 
+    cursor = conn.cursor()
     # Create the Database if it DNE
     try:
         conn.autocommit = True
         cursor.execute(f"CREATE DATABASE {query_database_name};")
         conn.commit()
+
     except Exception as error:
         print(error)
+
     finally:
+        cursor.close()
         conn.autocommit = False
     conn.close()
     
@@ -62,40 +72,42 @@ def load_database(cursor, conn):
     host = db_host
     port = db_port
     conn = psycopg.connect(dbname=dbname, user=user, password=password, host=host, port=port)
-    cursor = conn.cursor()
-    
+
     # Import the dbexport.sql database data into this database
     try:
-        command = f'psql -h {host} -U {user} -d {query_database_name} -a -f {os.path.join(dir_path, "dbexport.sql")}'
+        command = f'psql -h {host} -U {user} -d {query_database_name} -a -f "{os.path.join(dir_path, "dbexport.sql")}" > /dev/null 2>&1'
         env = {'PGPASSWORD': password}
         subprocess.run(command, shell=True, check=True, env=env)
 
-    except subprocess.CalledProcessError as e:
-        print(f"An error occurred while loading the database: {e}")
+    except Exception as error:
+        print(f"An error occurred while loading the database: {error}")
     
     # Return this connection.
     return conn    
 
 # Dropping the Database after Query n Execution - Do NOT Modify
 #================================================
-def drop_database(cursor, conn):
+def drop_database(conn):
     # Drop database if it exists.
+
+    cursor = conn.cursor()
+
     try:
         conn.autocommit = True
         cursor.execute(f"DROP DATABASE IF EXISTS {query_database_name};")
         conn.commit()
+
     except Exception as error:
         print(error)
         pass
+
     finally:
+        cursor.close()
         conn.autocommit = False
 
 # Reconnect to Root Database - Do NOT Modify
 #================================================
-def reconnect(cursor, conn):
-    cursor.close()
-    conn.close()
-
+def reconnect():
     dbname = root_database_name
     user = db_username
     password = db_password
@@ -105,7 +117,7 @@ def reconnect(cursor, conn):
 
 # Getting the execution time of the query through EXPLAIN ANALYZE - Do NOT Modify
 #================================================
-def get_time(cursor, conn, sql_query):
+def get_time(cursor, sql_query):
     # Prefix your query with EXPLAIN ANALYZE
     explain_query = f"EXPLAIN ANALYZE {sql_query}"
 
@@ -128,20 +140,21 @@ def get_time(cursor, conn, sql_query):
         else:
             print("Execution Time not found in EXPLAIN ANALYZE output.")
             return f"NA"
-    except:
-        print("[ERROR] Error getting time.")
+        
+    except Exception as error:
+        print(f"[ERROR] Error getting time.\n{error}")
 
 
 # Write the results into some Q_n CSV. If the is an error with the query, it is a INC result - Do NOT Modify
 #================================================
-def write_csv(execution_time, cursor, conn, i):
+def write_csv(execution_time, cursor, i):
     # Collect all data into this csv, if there is an error from the query execution, the resulting time is INC.
     try:
         colnames = [desc[0] for desc in cursor.description]
         rows = cursor.fetchall()
         filename = f"{dir_path}/Q_{i}.csv"
 
-        with open(filename, 'w', newline='') as csvfile:
+        with open(filename, 'w', encoding='utf-8', newline='') as csvfile:
             csvwriter = csv.writer(csvfile)
             
             # Write column names to the CSV file
@@ -161,9 +174,9 @@ The following 10 methods, (Q_n(), where 1 < n < 10) will be where you are tasked
 To reiterate, any modification outside of the query line will be flagged, and then marked as potential cheating.
 Once you run this script, these 10 methods will run and print the times in order from top to bottom, Q1 to Q10 in the terminal window.
 '''
-def Q_1(cursor, conn, execution_time):
-    connection = load_database(cursor, conn)
-    cursor = connection.cursor()
+def Q_1(conn, execution_time):
+    new_conn = load_database(conn)
+    cursor = new_conn.cursor()
 
     #==========================================================================
     # Enter QUERY within the quotes:
@@ -199,19 +212,23 @@ def Q_1(cursor, conn, execution_time):
 
     #==========================================================================
 
-    time_val = get_time(cursor, connection, query)
+    time_val = get_time(cursor, query)
     cursor.execute(query)
     execution_time[0] = (time_val)
 
-    write_csv(execution_time, cursor, connection, 1)
-    return reconnect(cursor, connection)
+    write_csv(execution_time, cursor, 1)
 
-def Q_2(cursor, conn, execution_time):
+    cursor.close()
+    new_conn.close()
 
-    connection = load_database(cursor, conn)
-    cursor = connection.cursor()
+    return reconnect()
 
-    #==========================================================================    
+def Q_2(conn, execution_time):
+
+    new_conn = load_database(conn)
+    cursor = new_conn.cursor()
+
+    #==========================================================================
     # Enter QUERY within the quotes:
 
     query = """ 
@@ -242,21 +259,25 @@ def Q_2(cursor, conn, execution_time):
 
     #==========================================================================
 
-    time_val = get_time(cursor, connection, query)
+    time_val = get_time(cursor, query)
     cursor.execute(query)
     execution_time[1] = (time_val)
 
-    write_csv(execution_time, cursor, connection, 2)
-    return reconnect(cursor, connection)
+    write_csv(execution_time, cursor, 2)
+
+    cursor.close()
+    new_conn.close()
+
+    return reconnect()
     
-def Q_3(cursor, conn, execution_time):
+def Q_3(conn, execution_time):
 
-    connection = load_database(cursor, conn)
-    cursor = connection.cursor()
+    new_conn = load_database(conn)
+    cursor = new_conn.cursor()
 
-    #==========================================================================    
+    #==========================================================================
     # Enter QUERY within the quotes:
-    
+
     query = """ 
     SELECT
         p.player_name,
@@ -287,20 +308,24 @@ def Q_3(cursor, conn, execution_time):
 
     #==========================================================================
 
-    time_val = get_time(cursor, connection, query)
+    time_val = get_time(cursor, query)
     cursor.execute(query)
     execution_time[2] = (time_val)
 
-    write_csv(execution_time, cursor, connection, 3)
-    return reconnect(cursor, connection)
+    write_csv(execution_time, cursor, 3)
 
-def Q_4(cursor, conn, execution_time):
-    connection = load_database(cursor, conn)
-    cursor = connection.cursor()
+    cursor.close()
+    new_conn.close()
 
-    #==========================================================================    
+    return reconnect()
+
+def Q_4(conn, execution_time):
+    new_conn = load_database(conn)
+    cursor = new_conn.cursor()
+
+    #==========================================================================
     # Enter QUERY within the quotes:
-    
+
     query = """
     SELECT
         t.name AS team_name,
@@ -329,20 +354,24 @@ def Q_4(cursor, conn, execution_time):
 
     #==========================================================================
 
-    time_val = get_time(cursor, connection, query)
+    time_val = get_time(cursor, query)
     cursor.execute(query)
     execution_time[3] = (time_val)
 
-    write_csv(execution_time, cursor, connection, 4)
-    return reconnect(cursor, connection)
+    write_csv(execution_time, cursor, 4)
 
-def Q_5(cursor, conn, execution_time):
-    connection = load_database(cursor, conn)
-    cursor = connection.cursor()
+    cursor.close()
+    new_conn.close()
 
-    #==========================================================================    
+    return reconnect()
+
+def Q_5(conn, execution_time):
+    new_conn = load_database(conn)
+    cursor = new_conn.cursor()
+
+    #==========================================================================
     # Enter QUERY within the quotes:
-    
+
     query = """
     SELECT
         p.player_name,
@@ -372,20 +401,24 @@ def Q_5(cursor, conn, execution_time):
 
     #==========================================================================
 
-    time_val = get_time(cursor, connection, query)
+    time_val = get_time(cursor, query)
     cursor.execute(query)
     execution_time[4] = (time_val)
 
-    write_csv(execution_time, cursor, connection, 5)
-    return reconnect(cursor, connection)
+    write_csv(execution_time, cursor, 5)
 
-def Q_6(cursor, conn, execution_time):
-    connection = load_database(cursor, conn)
-    cursor = connection.cursor()
+    cursor.close()
+    new_conn.close()
 
-    #==========================================================================    
+    return reconnect()
+
+def Q_6(conn, execution_time):
+    new_conn = load_database(conn)
+    cursor = new_conn.cursor()
+
+    #==========================================================================
     # Enter QUERY within the quotes:
-    
+
     query = """
     SELECT
         t.name AS team_name,
@@ -414,20 +447,25 @@ def Q_6(cursor, conn, execution_time):
 
     #==========================================================================
 
-    time_val = get_time(cursor, connection, query)
+    time_val = get_time(cursor, query)
     cursor.execute(query)
     execution_time[5] = (time_val)
 
-    write_csv(execution_time, cursor, connection, 6)
-    return reconnect(cursor, connection)
+    write_csv(execution_time, cursor, 6)
 
-def Q_7(cursor, conn, execution_time):
-    connection = load_database(cursor, conn)
-    cursor = connection.cursor()
+    cursor.close()
+    new_conn.close()
 
-    #==========================================================================    
+    return reconnect()
+
+
+def Q_7(conn, execution_time):
+    new_conn = load_database(conn)
+    cursor = new_conn.cursor()
+
+    #==========================================================================
     # Enter QUERY within the quotes:
-    
+
     query = """ 
     SELECT
         p.player_name,
@@ -457,20 +495,24 @@ def Q_7(cursor, conn, execution_time):
 
     #==========================================================================
 
-    time_val = get_time(cursor, connection, query)
+    time_val = get_time(cursor, query)
     cursor.execute(query)
     execution_time[6] = (time_val)
 
-    write_csv(execution_time, cursor, connection, 7)
-    return reconnect(cursor, connection)
+    write_csv(execution_time, cursor, 7)
 
-def Q_8(cursor, conn, execution_time):
-    connection = load_database(cursor, conn)
-    cursor = connection.cursor()
+    cursor.close()
+    new_conn.close()
 
-    #==========================================================================    
+    return reconnect()
+
+def Q_8(conn, execution_time):
+    new_conn = load_database(conn)
+    cursor = new_conn.cursor()
+
+    #==========================================================================
     # Enter QUERY within the quotes:
-    
+
     query = """
     SELECT
         t.name AS team_name,
@@ -500,20 +542,24 @@ def Q_8(cursor, conn, execution_time):
 
     #==========================================================================
 
-    time_val = get_time(cursor, connection, query)
+    time_val = get_time(cursor, query)
     cursor.execute(query)
     execution_time[7] = (time_val)
 
-    write_csv(execution_time, cursor, connection, 8)
-    return reconnect(cursor, connection)
+    write_csv(execution_time, cursor, 8)
 
-def Q_9(cursor, conn, execution_time):
-    connection = load_database(cursor, conn)
-    cursor = connection.cursor()
+    cursor.close()
+    new_conn.close()
 
-    #==========================================================================    
+    return reconnect()
+
+def Q_9(conn, execution_time):
+    new_conn = load_database(conn)
+    cursor = new_conn.cursor()
+
+    #==========================================================================
     # Enter QUERY within the quotes:
-    
+
     query = """
     SELECT
         p.player_name,
@@ -543,20 +589,24 @@ def Q_9(cursor, conn, execution_time):
 
     #==========================================================================
 
-    time_val = get_time(cursor, connection, query)
+    time_val = get_time(cursor, query)
     cursor.execute(query)
     execution_time[8] = (time_val)
 
-    write_csv(execution_time, cursor, connection, 9)
-    return reconnect(cursor, connection)
+    write_csv(execution_time, cursor, 9)
 
-def Q_10(cursor, conn, execution_time):
-    connection = load_database(cursor, conn)
-    cursor = connection.cursor()
+    cursor.close()
+    new_conn.close()
 
-    #==========================================================================    
+    return reconnect()
+
+def Q_10(conn, execution_time):
+    new_conn = load_database(conn)
+    cursor = new_conn.cursor()
+
+    #==========================================================================
     # Enter QUERY within the quotes:
-    
+
     query = """ 
     SELECT
         p.player_name,
@@ -586,29 +636,33 @@ def Q_10(cursor, conn, execution_time):
 
     #==========================================================================
 
-    time_val = get_time(cursor, connection, query)
+    time_val = get_time(cursor, query)
     cursor.execute(query)
     execution_time[9] = (time_val)
 
-    write_csv(execution_time, cursor, connection, 10)
-    return reconnect(cursor, connection)
+    write_csv(execution_time, cursor, 10)
+
+    cursor.close()
+    new_conn.close()
+
+    return reconnect()
 
 # Running the queries from the Q_n methods - Do NOT Modify
 #=====================================================
-def run_queries(cursor, conn, dbname):
+def run_queries(conn):
 
     execution_time = [0,0,0,0,0,0,0,0,0,0]
 
-    conn = Q_1(cursor, conn, execution_time)
-    conn = Q_2(cursor, conn, execution_time)
-    conn = Q_3(cursor, conn, execution_time)
-    conn = Q_4(cursor, conn, execution_time)
-    conn = Q_5(cursor, conn, execution_time)
-    conn = Q_6(cursor, conn, execution_time)
-    conn = Q_7(cursor, conn, execution_time)
-    conn = Q_8(cursor, conn, execution_time)
-    conn = Q_9(cursor, conn, execution_time)
-    conn = Q_10(cursor, conn, execution_time)
+    conn = Q_1(conn, execution_time)
+    conn = Q_2(conn, execution_time)
+    conn = Q_3(conn, execution_time)
+    conn = Q_4(conn, execution_time)
+    conn = Q_5(conn, execution_time)
+    conn = Q_6(conn, execution_time)
+    conn = Q_7(conn, execution_time)
+    conn = Q_8(conn, execution_time)
+    conn = Q_9(conn, execution_time)
+    conn = Q_10(conn, execution_time)
 
     for i in range(10):
         print(execution_time[i])
@@ -624,9 +678,8 @@ try:
         port = db_port
 
         conn = psycopg.connect(dbname=dbname, user=user, password=password, host=host, port=port)
-        cursor = conn.cursor()
         
-        run_queries(cursor, conn, dbname)
+        run_queries(conn)
 except Exception as error:
     print(error)
     #print("[ERROR]: Failure to connect to database.")
